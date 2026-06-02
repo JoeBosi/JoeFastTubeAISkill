@@ -284,13 +284,74 @@ def _segments_from_response(data: dict) -> list[dict]:
     return out
 
 
+WHISPER_DEFAULT_MAX_MB = 24  # safety margin under the 25 MB API hard limit
+
+
+def _max_upload_bytes() -> int:
+    """Max bytes per Whisper request. Overridable via JFT_WHISPER_MAX_MB (used in tests)."""
+    override = os.environ.get("JFT_WHISPER_MAX_MB")
+    if override:
+        try:
+            return max(1, int(float(override) * 1024 * 1024))
+        except ValueError:
+            pass
+    return WHISPER_DEFAULT_MAX_MB * 1024 * 1024
+
+
+def _audio_duration(path: Path) -> float:
+    """Seconds of audio in a file (ffprobe). 0.0 if unknown."""
+    if shutil.which("ffprobe") is None:
+        return 0.0
+    result = subprocess.run(
+        ["ffprobe", "-v", "quiet", "-show_entries", "format=duration",
+         "-of", "default=noprint_wrappers=1:nokey=1", str(path)],
+        capture_output=True, text=True,
+    )
+    try:
+        return float(result.stdout.strip())
+    except (ValueError, AttributeError):
+        return 0.0
+
+
+def _split_audio(audio_path: Path, chunk_seconds: int) -> list[Path]:
+    """Split an mp3 into <=chunk_seconds segments with ffmpeg. Returns chunk paths in order."""
+    chunk_dir = audio_path.parent / "audio_chunks"
+    chunk_dir.mkdir(parents=True, exist_ok=True)
+    for old in chunk_dir.glob("chunk_*.mp3"):
+        old.unlink()
+    pattern = str(chunk_dir / "chunk_%03d.mp3")
+    cmd = [
+        "ffmpeg", "-hide_banner", "-loglevel", "error", "-y",
+        "-i", str(audio_path.resolve()),
+        "-f", "segment", "-segment_time", str(chunk_seconds),
+        "-c", "copy", pattern,
+    ]
+    result = subprocess.run(cmd, capture_output=True, text=True)
+    if result.returncode != 0:
+        raise SystemExit(f"ffmpeg audio split failed: {result.stderr.strip()}")
+    return sorted(chunk_dir.glob("chunk_*.mp3"))
+
+
+def _upload(backend: str, api_key: str, audio_path: Path) -> dict:
+    if backend == "groq":
+        return _post_whisper(GROQ_ENDPOINT, api_key, GROQ_MODEL, audio_path)
+    if backend == "openai":
+        return _post_whisper(OPENAI_ENDPOINT, api_key, OPENAI_MODEL, audio_path)
+    raise SystemExit(f"Unknown whisper backend: {backend}")
+
+
 def transcribe_video(
     video_path: str,
     audio_out: Path,
     backend: str | None = None,
     api_key: str | None = None,
 ) -> tuple[list[dict], str]:
-    """Run the full flow: extract audio → upload → parse segments.
+    """Run the full flow: extract audio → (split if needed) → upload → parse segments.
+
+    For caption-less videos whose audio exceeds the Whisper 25 MB upload limit, the
+    audio is split into time-based chunks; each chunk is transcribed and its segment
+    timestamps are shifted back onto the absolute video timeline, then merged.
+    (roadmap "Problema 1")
 
     Returns (segments, backend_used). Raises SystemExit on any failure.
     """
@@ -303,28 +364,60 @@ def transcribe_video(
         setup_py = Path(__file__).resolve().parent / "setup.py"
         raise SystemExit(
             "No Whisper API key available. Set GROQ_API_KEY (preferred) or OPENAI_API_KEY "
-            "in the environment or in ~/.config/watch/.env. "
+            "in the environment or in ~/.config/JoeFastTubeAI/.env. "
             f"Run `python3 {setup_py}` to configure."
         )
 
-    print(f"[watch] extracting audio for Whisper ({backend})…", file=sys.stderr)
+    print(f"[JoeFastTubeAI] extracting audio for Whisper ({backend})…", file=sys.stderr)
     audio_path = extract_audio(video_path, audio_out)
-    size_kb = audio_path.stat().st_size / 1024
-    print(f"[watch] audio: {size_kb:.0f} kB — uploading to {backend} Whisper…", file=sys.stderr)
+    size = audio_path.stat().st_size
+    max_bytes = _max_upload_bytes()
 
-    if backend == "groq":
-        response = _post_whisper(GROQ_ENDPOINT, api_key, GROQ_MODEL, audio_path)
-    elif backend == "openai":
-        response = _post_whisper(OPENAI_ENDPOINT, api_key, OPENAI_MODEL, audio_path)
-    else:
-        raise SystemExit(f"Unknown whisper backend: {backend}")
+    # Small enough → single request (the common case).
+    if size <= max_bytes:
+        print(f"[JoeFastTubeAI] audio: {size / 1024:.0f} kB — uploading to {backend} Whisper…", file=sys.stderr)
+        segments = _segments_from_response(_upload(backend, api_key, audio_path))
+        if not segments:
+            raise SystemExit("Whisper returned no transcript segments")
+        print(f"[JoeFastTubeAI] transcribed {len(segments)} segments via {backend}", file=sys.stderr)
+        return segments, backend
 
-    segments = _segments_from_response(response)
-    if not segments:
+    # Too big → chunk it (Problema 1).
+    duration = _audio_duration(audio_path)
+    bytes_per_sec = (size / duration) if duration > 0 else (64_000 / 8)
+    chunk_seconds = max(30, int((max_bytes * 0.9) / bytes_per_sec))
+    chunks = _split_audio(audio_path, chunk_seconds)
+    if not chunks:
+        raise SystemExit("audio splitting produced no chunks")
+    print(
+        f"[JoeFastTubeAI] audio {size / 1024 / 1024:.1f} MB exceeds {max_bytes / 1024 / 1024:.0f} MB limit — "
+        f"split into {len(chunks)} chunks of ~{chunk_seconds}s",
+        file=sys.stderr,
+    )
+
+    all_segments: list[dict] = []
+    offset = 0.0
+    for i, chunk in enumerate(chunks, 1):
+        print(
+            f"[JoeFastTubeAI] transcribing chunk {i}/{len(chunks)} "
+            f"({chunk.stat().st_size / 1024 / 1024:.1f} MB)…",
+            file=sys.stderr,
+        )
+        segs = _segments_from_response(_upload(backend, api_key, chunk))
+        for s in segs:
+            s["start"] = round(s["start"] + offset, 2)
+            s["end"] = round(s["end"] + offset, 2)
+        all_segments.extend(segs)
+        offset += _audio_duration(chunk)
+
+    if not all_segments:
         raise SystemExit("Whisper returned no transcript segments")
-
-    print(f"[watch] transcribed {len(segments)} segments via {backend}", file=sys.stderr)
-    return segments, backend
+    print(
+        f"[JoeFastTubeAI] transcribed {len(all_segments)} segments via {backend} "
+        f"({len(chunks)} chunks)",
+        file=sys.stderr,
+    )
+    return all_segments, backend
 
 
 if __name__ == "__main__":

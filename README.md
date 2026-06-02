@@ -73,9 +73,9 @@ You can also just ask in plain language: *"Use JoeFastTubeAI to watch this video
 
 | Flag | Purpose |
 |------|---------|
-| `--start T` / `--end T` | Focus a section (`SS`, `MM:SS`, `HH:MM:SS`); denser frames |
+| `--start T` / `--end T` | Focus a section (`SS`, `MM:SS`, `HH:MM:SS`); denser frames, auto-captured in **Full HD (1920px)** |
 | `--max-frames N` | Cap frames (default 80, max 100) for a tighter token budget |
-| `--resolution W` | Frame width in px (default 512; 1024 to read on-screen text) |
+| `--resolution W` | Frame width in px. Default **512** for a full scan, **1920** for a focused pass; override only if needed |
 | `--no-whisper` | Disable the Whisper fallback (frames-only if no captions) |
 | `--base-dir DIR` | Change the root output folder (default `./JoeFastTubeAI`) |
 
@@ -142,13 +142,15 @@ URL ──► yt-dlp ──► video + captions          (cached per video-id)
   OpenAI key — see [Configuration](#configuration). Without a key, caption-less videos
   come back frames-only.
 
-## Roadmap / Known limitations
+## Auto-zoom & long videos (since 1.1.0)
 
-- **Auto-zoom (planned).** A second, focused pass that reads the transcript, finds the
-  moments the narrator points at something, and re-captures those segments densely in
-  **Full HD** for readable on-screen detail.
-- **Long caption-less videos (~>50 min).** The Whisper API caps uploads at 25 MB
-  (≈50 min of compressed audio). Chunked transcription is on the roadmap.
+- **Auto-zoom in Full HD.** Run a focused pass (`--start/--end`) on the moments that matter;
+  frames there are captured at **1920px** automatically, so on-screen text (charts, code,
+  terminals) stays readable. The skill scans the whole video first, then zooms into the key
+  moments the narrator points at.
+- **Long caption-less videos.** If a video has no captions and its audio exceeds the Whisper
+  25 MB limit (~50 min), the audio is automatically split into chunks, each transcribed, and
+  the timestamps are stitched back onto the absolute timeline — no action needed.
 
 ## Credits & License
 

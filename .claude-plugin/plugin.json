@@ -1,6 +1,6 @@
 {
   "name": "JoeFastTubeAI",
-  "version": "1.0.1",
+  "version": "1.1.0",
   "description": "Watch a video (URL or local path) with per-video caching and persistent output. Downloads with yt-dlp, extracts auto-scaled frames with ffmpeg, pulls captions (or Whisper) for the transcript, answers in chat, and saves prompt.md + result.md + frames under ./JoeFastTubeAI/<video-id>/<N>/. Re-prompts on the same video reuse the cached download and transcript to save bandwidth and tokens.",
   "author": {
     "name": "Giuseppe Bosi",

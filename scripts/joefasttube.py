@@ -223,7 +223,11 @@ def main() -> int:
         help="Root output folder (default: ./JoeFastTubeAI in the current directory)",
     )
     ap.add_argument("--max-frames", type=int, default=80, help="Cap on frame count (default 80, hard max 100)")
-    ap.add_argument("--resolution", type=int, default=512, help="Frame width in pixels (default 512)")
+    ap.add_argument(
+        "--resolution", type=int, default=None,
+        help="Frame width in pixels. Default: 512 for a full scan, 1920 (Full HD) for a "
+             "focused --start/--end pass so on-screen text stays readable.",
+    )
     ap.add_argument("--fps", type=float, default=None, help="Override auto-fps (max 2)")
     ap.add_argument("--start", default=None, help="Range start (SS, MM:SS, or HH:MM:SS)")
     ap.add_argument("--end", default=None, help="Range end (SS, MM:SS, or HH:MM:SS)")
@@ -292,6 +296,11 @@ def main() -> int:
     effective_duration = max(0.0, effective_end - effective_start)
     focused = start_sec is not None or end_sec is not None
 
+    # Auto-zoom (Problema 2): a focused pass exists to read detail, so default it to
+    # Full HD (1920px) unless --resolution was set explicitly. The panoramic full-video
+    # pass stays at 512px to keep the token budget sane.
+    resolution = args.resolution if args.resolution is not None else (1920 if focused else 512)
+
     if focused:
         fps, target = auto_fps_focus(effective_duration, max_frames=max_frames)
     else:
@@ -310,7 +319,7 @@ def main() -> int:
         video_path,
         frames_dir,
         fps=fps,
-        resolution=args.resolution,
+        resolution=resolution,
         max_frames=max_frames,
         start_seconds=start_sec,
         end_seconds=end_sec,
@@ -349,7 +358,7 @@ def main() -> int:
         w(f"- **Resolution:** {meta['width']}x{meta['height']} ({meta.get('codec') or 'unknown codec'})")
     mode = "focused" if focused else "full"
     w(f"- **Frames:** {len(frames)} @ {fps:.3f} fps, {mode} mode (budget {target}, max {max_frames})")
-    w(f"- **Frame size:** {args.resolution}px wide")
+    w(f"- **Frame size:** {resolution}px wide{' (Full HD, auto-zoom)' if focused and resolution >= 1920 else ''}")
     if segments:
         in_range = " in range" if focused else ""
         w(f"- **Transcript:** {len(segments)} segments{in_range} (via {transcript_source or 'captions'})")

@@ -3,17 +3,22 @@
 All notable changes to JoeFastTubeAI are documented here.
 The format is based on [Keep a Changelog](https://keepachangelog.com/).
 
-## [Unreleased] — Roadmap
+## [1.1.0] — 2026-06-02
 
-### Planned
-- **Auto-zoom (two-pass).** After the panoramic pass, read the transcript to find
-  the moments where the narrator points at something on screen ("look here", "this
-  level", "this chart"), then run a focused, higher-density second pass on exactly
-  those segments. _(internal tag: "Problema 2")_
-- **Full HD frames.** Optional `1920px` capture for readable on-screen text in the
-  auto-zoom pass. _(internal tag: "Problema 2")_
-- **Chunked Whisper.** Split the extracted audio so caption-less videos longer than
-  ~50 min stop hitting the 25 MB Whisper upload limit. _(internal tag: "Problema 1")_
+### Added
+- **Chunked Whisper (Problema 1).** Caption-less videos whose audio exceeds the 25 MB
+  Whisper upload limit (~50 min) are transcribed by splitting the audio into time-based
+  chunks; each chunk is transcribed and its segment timestamps are shifted back onto the
+  absolute video timeline, then merged. The per-request limit is overridable with
+  `JFT_WHISPER_MAX_MB` (used in tests).
+- **Auto-zoom in Full HD (Problema 2).** A focused `--start/--end` pass now defaults to
+  **1920px (Full HD)** capture (panoramic full-video scans stay at 512px). `SKILL.md` gained
+  a "Step 4.5 — Auto-zoom" two-pass workflow: scan the whole video, then re-capture the
+  moments the narrator points at on screen, sharply.
+- **`result.md` output conventions (Problema 3).** `SKILL.md` now requires, by default: a
+  clickable table of contents, concept-first reorganization (not narration order), English
+  technical terms kept untranslated, no loss of key details (names, procedures, commands,
+  figures), and embedded key images.
 
 ## [1.0.1] — 2026-06-02
 

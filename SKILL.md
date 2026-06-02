@@ -78,11 +78,15 @@ download was reused from cache. It prints the markdown report to stdout.
 Optional flags (same semantics as `watch`):
 - `--start T` / `--end T` — focus a section (`SS`, `MM:SS`, `HH:MM:SS`); fps auto-densifies.
 - `--max-frames N` — lower the cap for a tighter token budget (e.g. `--max-frames 40`).
-- `--resolution W` — frame width in px (default 512; 1024 only to read on-screen text).
+- `--resolution W` — frame width in px. Default **512** for a full scan; a focused `--start/--end` pass auto-captures **1920 (Full HD)** so on-screen text stays readable (Problema 2). Set explicitly only to override.
 - `--fps F` — override auto-fps (max 2).
 - `--no-whisper` — disable the Whisper fallback (frames-only if no captions).
 - `--whisper groq|openai` — force a backend.
 - `--base-dir DIR` — change the root output folder (default: `./JoeFastTubeAI`).
+
+> **Long caption-less videos (Problema 1):** if a video has no captions and its audio
+> exceeds the 25 MB Whisper limit (~50 min), the script automatically splits the audio
+> into chunks, transcribes each, and stitches the absolute timeline back — no action needed.
 
 **Step 3 — Read every frame path** the report lists, in a single message (parallel
 Read calls) so you see them together. Each has a `t=MM:SS` absolute timestamp.
@@ -90,11 +94,40 @@ Read calls) so you see them together. Each has a `t=MM:SS` absolute timestamp.
 **Step 4 — answer the user** in chat. Combine frames (what's on screen) with the
 transcript (what's said), citing timestamps. If they asked nothing, summarize the video.
 
-**Step 5 — SAVE YOUR ANSWER (required).** The script printed a line
-`[JoeFastTubeAI] SAVE-RESULT-TO: <path>/result.md` on stderr. Write your final answer
-(the same text you gave the user, in Markdown) to that exact `result.md` path using the
-Write tool, overwriting the placeholder. This is the whole point of the skill — the
-result must end up on disk next to its `prompt.md`.
+**Step 4.5 — Auto-zoom, the second pass (Problema 2).** Do this for any "summarize /
+explain / make a doc" request, unless the user opted out or the video is very short. The
+first run is a *panoramic* scan (sparse 512px frames). Now read the transcript and find
+the moments where the narrator **points at something on screen** — deictic cues such as
+"look here", "this chart", "this level", "notice…", "guardate qui", "questo grafico", or
+any spot where the spoken words imply on-screen detail a sparse 512px frame can't resolve.
+Pick up to ~3–5 short windows and re-run the script focused on each; it auto-captures
+**Full HD (1920px)** frames there:
+
+```bash
+python3 "${CLAUDE_SKILL_DIR}/scripts/joefasttube.py" "<source>" --prompt "<question>" --start MM:SS --end MM:SS
+```
+
+Each focused run reuses the cached download (no re-download) and creates its own request
+folder. Read those sharper frames and use them as the key images in the document.
+
+**Step 5 — SAVE YOUR ANSWER as a well-structured `.md` (required).** Use the **panoramic
+run's** `result.md` path (the first `[JoeFastTubeAI] SAVE-RESULT-TO:` you were given) and
+write your final answer there with the Write tool, overwriting the placeholder. **Unless
+the user asks otherwise, `result.md` MUST follow these conventions (Problema 3):**
+
+1. **Clickable table of contents at the top** — a bulleted list linking to every section
+   via Markdown heading anchors, e.g. `- [ETF e deflussi](#2-etf-e-deflussi)`.
+2. **Reorganized by concept, not by narration order** — group and order content for the
+   clearest understanding, not in the sequence the speaker happened to say it.
+3. **Keep English technical terms in English** — do not translate jargon (e.g. *support*,
+   *inflow*, *bear market*, *prompt*, *commit*); translate only the surrounding prose.
+4. **Lose nothing important** — preserve names of people/places, techniques, explained
+   procedures, specific commands, key figures and keywords. Reorganize, don't drop.
+5. **Embed the key images** with relative paths and a short caption + timestamp: a
+   panoramic frame as `![caption](frames/frame_0007.jpg)`; a Full-HD auto-zoom frame from
+   another request folder as `![caption](../<M>/frames/frame_0003.jpg)`.
+
+The result must end up on disk next to its `prompt.md` — that is the whole point of the skill.
 
 ## Caching behavior (what to tell the user)
 
@@ -107,7 +140,9 @@ result must end up on disk next to its `prompt.md`.
 
 ## Token efficiency
 
-Frames dominate token cost (~50–80k for 80 frames at 512px). The transcript is cheap.
+Frames dominate token cost (~50–80k for 80 frames at 512px; a **Full HD 1920px** frame
+costs roughly 10–14× a 512px one, so keep auto-zoom passes to short windows with few
+frames). The transcript is cheap.
 If you already watched a video this session and the user asks a follow-up that the frames
 + transcript already in context can answer, just answer — no need to re-run the script.
 
