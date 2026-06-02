@@ -36,7 +36,7 @@ summarize. Unlike a throwaway approach, **it caches per video and saves every ru
 ### As a loose skill (simplest)
 
 ```bash
-git clone https://github.com/JoeBosi/JoeFastTubeAI.git ~/.claude/skills/JoeFastTubeAI
+git clone https://github.com/JoeBosi/JoeFastTubeAISkill.git ~/.claude/skills/JoeFastTubeAI
 ```
 
 Restart Claude Code. Type `/JoeFastTubeAI` — the command appears in the menu.
@@ -47,7 +47,7 @@ This repo ships `.claude-plugin/plugin.json` and `.claude-plugin/marketplace.jso
 so it can also be added as a plugin marketplace:
 
 ```
-/plugin marketplace add JoeBosi/JoeFastTubeAI
+/plugin marketplace add JoeBosi/JoeFastTubeAISkill
 /plugin install JoeFastTubeAI@joefasttube-ai
 ```
 
