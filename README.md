@@ -103,18 +103,67 @@ for other URLs it is a short hash; for a local file it is `file-<name>`.
 
 ---
 
-## Configuration
+## Configuration — the `.env` file (Whisper keys)
 
-Whisper keys (optional) are read from, in order:
+A Whisper API key is **optional**. It is used **only** to transcribe videos that have **no
+captions** — and most YouTube videos already have captions, so you may never need it. When
+it *is* needed, the key is read from a small text file:
+
+```
+~/.config/JoeFastTubeAI/.env
+```
+
+### Step 1 — create the file
+
+**Option A — let the skill create it for you (easiest):**
+
+```bash
+python3 ~/.claude/skills/JoeFastTubeAI/scripts/setup.py
+```
+
+This creates `~/.config/JoeFastTubeAI/.env` pre-filled with commented placeholders and the
+correct private permissions (`600`). Then just open it and paste your key.
+
+**Option B — create it by hand:**
+
+```bash
+mkdir -p ~/.config/JoeFastTubeAI
+printf 'GROQ_API_KEY=%s\n' 'gsk_paste_your_key_here' > ~/.config/JoeFastTubeAI/.env
+chmod 600 ~/.config/JoeFastTubeAI/.env
+```
+
+### Step 2 — what to put inside
+
+The file is plain `KEY=value`, one per line — **no quotes, no spaces around the `=`**:
+
+```dotenv
+# Whisper transcription — used only when a video has no captions.
+# Set just ONE of these (Groq is enough).
+
+GROQ_API_KEY=gsk_xxxxxxxxxxxxxxxxxxxxxxxx
+# optional paid fallback:
+OPENAI_API_KEY=sk-xxxxxxxxxxxxxxxxxxxxxxxx
+```
+
+| Provider | Model | Cost | Get a key | Key looks like |
+|----------|-------|------|-----------|----------------|
+| **Groq** (preferred) | `whisper-large-v3` | free tier, fast | <https://console.groq.com/keys> | `gsk_…` |
+| **OpenAI** (fallback) | `whisper-1` | paid | <https://platform.openai.com/api-keys> | `sk-…` |
+
+Leave **both** blank to disable Whisper entirely — caption-less videos then come back
+frames-only (the skill still works).
+
+### Where keys are read from (first match wins)
 
 1. environment variables `GROQ_API_KEY` / `OPENAI_API_KEY`
-2. `~/.config/JoeFastTubeAI/.env`
-3. `~/.config/watch/.env` (legacy fallback)
-4. `.env` in the current directory
+2. `~/.config/JoeFastTubeAI/.env`  ← **the recommended place**
+3. `~/.config/watch/.env` (legacy fallback, from the upstream `watch` skill)
+4. `.env` in the current working directory
 
-Groq is preferred (cheaper, faster: `whisper-large-v3`); OpenAI (`whisper-1`) is the
-fallback. Only the extracted **audio** is ever sent out, and only when captions are
-missing and `--no-whisper` was not passed. The video itself is never uploaded.
+> 🔒 **Security.** Keep the file `chmod 600` (only you can read it) and never commit it —
+> it is already in `.gitignore`. Only the extracted **audio** is ever uploaded, and only
+> when captions are missing and `--no-whisper` was not passed. The video itself is never
+> sent anywhere, and the key is never written to logs or output.
 
 ---
 
