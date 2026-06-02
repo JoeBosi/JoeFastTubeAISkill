@@ -30,7 +30,7 @@ def resolve_local(path: str) -> dict:
         raise SystemExit(f"File not found: {p}")
     if p.suffix.lower() not in VIDEO_EXTS:
         print(
-            f"[watch] warning: {p.suffix} is not a known video extension, proceeding anyway",
+            f"[JoeFastTubeAI] warning: {p.suffix} is not a known video extension, proceeding anyway",
             file=sys.stderr,
         )
     return {
@@ -106,7 +106,7 @@ def download_url(url: str, out_dir: Path) -> dict:
                 "url": raw.get("webpage_url") or url,
             }
         except Exception as exc:
-            print(f"[watch] info.json parse failed: {exc}", file=sys.stderr)
+            print(f"[JoeFastTubeAI] info.json parse failed: {exc}", file=sys.stderr)
             info = {"url": url}
 
     return {

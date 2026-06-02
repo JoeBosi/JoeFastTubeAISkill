@@ -16,9 +16,6 @@ summarize. Unlike a throwaway approach, **it caches per video and saves every ru
 - 🔢 **Progressive numbering.** Ask three questions about one video and you get
   folders `1/`, `2/`, `3/` — nothing is overwritten.
 
-> Fork of [`watch`](https://github.com/bradautomates/claude-video) by Bradley
-> Bonanno, with caching + persistence added. MIT licensed.
-
 ---
 
 ## Requirements
@@ -155,8 +152,7 @@ frames-only (the skill still works).
 
 1. environment variables `GROQ_API_KEY` / `OPENAI_API_KEY`
 2. `~/.config/JoeFastTubeAI/.env`  ← **the recommended place**
-3. `~/.config/watch/.env` (legacy fallback, from the upstream `watch` skill)
-4. `.env` in the current working directory
+3. `.env` in the current working directory
 
 > 🔒 **Security.** Keep the file `chmod 600` (only you can read it) and never commit it —
 > it is already in `.gitignore`. Only the extracted **audio** is ever uploaded, and only
@@ -175,8 +171,8 @@ URL ──► yt-dlp ──► video + captions          (cached per video-id)
    frames/*.jpg  +  transcript  ──►  Claude reads frames, answers, writes result.md
 ```
 
-`scripts/joefasttube.py` is the entry point; it reuses `download.py`, `frames.py`,
-`transcribe.py`, `whisper.py` and `setup.py` from the upstream pipeline.
+`scripts/joefasttube.py` is the entry point; the heavy lifting is in `download.py`,
+`frames.py`, `transcribe.py`, `whisper.py` and `setup.py`.
 
 ---
 
@@ -199,8 +195,6 @@ URL ──► yt-dlp ──► video + captions          (cached per video-id)
   25 MB limit (~50 min), the audio is automatically split into chunks, each transcribed, and
   the timestamps are stitched back onto the absolute timeline — no action needed.
 
-## Credits & License
+## License
 
-Forked from **[bradautomates/claude-video](https://github.com/bradautomates/claude-video)**
-(the `watch` skill) by Bradley Bonanno. Caching, persistence and the JoeFastTubeAI
-packaging by Giuseppe Bosi. Released under the **MIT License** — see [LICENSE](./LICENSE).
+By **Giuseppe Bosi**. Released under the **MIT License** — see [LICENSE](./LICENSE).

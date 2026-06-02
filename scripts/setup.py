@@ -15,8 +15,6 @@ Design:
   through a successful installer run at least once.
 - Never sudo. On macOS, auto-install via brew. Elsewhere, print exact commands.
 - Never write an API key to disk automatically — only scaffold placeholders.
-- Backward compatible: if a key is missing here but present in the legacy
-  ~/.config/watch/.env (from the upstream `watch` skill), it is reused.
 """
 from __future__ import annotations
 
@@ -32,9 +30,6 @@ from pathlib import Path
 REQUIRED_BINARIES = ["ffmpeg", "ffprobe", "yt-dlp"]
 CONFIG_DIR = Path.home() / ".config" / "JoeFastTubeAI"
 CONFIG_FILE = CONFIG_DIR / ".env"
-# Legacy location from the upstream `watch` skill — read-only fallback so an
-# existing Whisper key keeps working without reconfiguration.
-LEGACY_CONFIG_FILE = Path.home() / ".config" / "watch" / ".env"
 ENV_TEMPLATE = """# JoeFastTubeAI API configuration
 #
 # Whisper transcription fallback — used only when yt-dlp cannot get captions
@@ -101,10 +96,9 @@ def _read_env_key(name: str) -> str | None:
     value = os.environ.get(name)
     if value and value.strip():
         return value.strip()
-    for path in (CONFIG_FILE, LEGACY_CONFIG_FILE):
-        found = _read_key_from_file(path, name)
-        if found:
-            return found
+    found = _read_key_from_file(CONFIG_FILE, name)
+    if found:
+        return found
     return None
 
 

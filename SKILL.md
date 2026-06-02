@@ -1,18 +1,18 @@
 ---
 name: JoeFastTubeAI
-description: Watch a video (URL or local path) the way /watch does — download with yt-dlp, extract frames with ffmpeg, pull the transcript from captions (or Whisper) — BUT with per-video caching and persistent output. Every run is saved under ./JoeFastTubeAI/<video-id>/<N>/ (prompt.md + result.md + frames), and the heavy reusable artifacts (download, transcript) are cached per video so re-prompts skip re-downloading and re-transcribing.
+description: Watch a video (URL or local path) — download with yt-dlp, extract frames with ffmpeg, pull the transcript from captions (or Whisper) — with per-video caching and persistent output. Every run is saved under ./JoeFastTubeAI/<video-id>/<N>/ (prompt.md + result.md + frames), and the heavy reusable artifacts (download, transcript) are cached per video so re-prompts skip re-downloading and re-transcribing.
 argument-hint: "<video-url-or-path> [question]"
 allowed-tools: Bash, Read, Write, AskUserQuestion
-homepage: https://github.com/bradautomates/claude-video
-author: bosi.giuseppe (fork of bradautomates/watch)
+homepage: https://github.com/JoeBosi/JoeFastTubeAISkill
+author: Giuseppe Bosi
 license: MIT
 user-invocable: true
 ---
 
 # /JoeFastTubeAI — watch a video, cache it, and save the result to disk
 
-This is a personalized fork of the `watch` skill. It does everything `watch` does
-(download → frames → transcript → Claude answers), and additionally:
+This skill gives Claude a video input: it downloads the video, extracts frames, builds a
+transcript (captions or Whisper) and lets Claude answer — and additionally:
 
 1. **Caches per video.** The downloaded video, subtitles and Whisper transcript are
    stored under `JoeFastTubeAI/<video-id>/` and **reused** on any later request for
@@ -52,8 +52,7 @@ Exit 0 → emit nothing, proceed. On non-zero exit:
 | `4` | Both missing | Run installer, then ask for a key |
 
 The installer auto-installs ffmpeg/yt-dlp via Homebrew on macOS and scaffolds
-`~/.config/JoeFastTubeAI/.env` (a legacy `~/.config/watch/.env` key is reused if present).
-Whisper is optional:
+`~/.config/JoeFastTubeAI/.env`. Whisper is optional:
 videos with native captions (most of YouTube) work with no key. If the user declines a
 key, run with `--no-whisper` and tell them caption-less videos come back frames-only.
 Within a session, skip Step 0 on follow-up calls once `--check` returned 0.
@@ -75,7 +74,7 @@ python3 "${CLAUDE_SKILL_DIR}/scripts/joefasttube.py" "<source>" --prompt "<user 
 The script prints (to stderr) the `video id`, the request number `#N`, and whether the
 download was reused from cache. It prints the markdown report to stdout.
 
-Optional flags (same semantics as `watch`):
+Optional flags:
 - `--start T` / `--end T` — focus a section (`SS`, `MM:SS`, `HH:MM:SS`); fps auto-densifies.
 - `--max-frames N` — lower the cap for a tighter token budget (e.g. `--max-frames 40`).
 - `--resolution W` — frame width in px. Default **512** for a full scan; a focused `--start/--end` pass auto-captures **1920 (Full HD)** so on-screen text stays readable (Problema 2). Set explicitly only to override.
@@ -135,8 +134,8 @@ The result must end up on disk next to its `prompt.md` — that is the whole poi
 - **Re-prompt** on the same video: the download and transcript are reused from
   `JoeFastTubeAI/<video-id>/`; only new frames + a new `<N>/` folder are produced. Mention
   in your answer when the download was reused ("riusato dalla cache, nessuna banda consumata").
-- Do **NOT** delete the `JoeFastTubeAI/` folder — unlike the original `watch` skill, this
-  output is meant to persist. The cache is what makes future runs cheap.
+- Do **NOT** delete the `JoeFastTubeAI/` folder — this output is meant to persist; the cache
+  is what makes future runs cheap.
 
 ## Token efficiency
 
@@ -148,7 +147,7 @@ If you already watched a video this session and the user asks a follow-up that t
 
 ## Security & Permissions
 
-Same as the upstream `watch` skill: runs `yt-dlp`/`ffmpeg`/`ffprobe` locally; only the
+Runs `yt-dlp`/`ffmpeg`/`ffprobe` locally; only the
 extracted audio (never the video) is sent to Groq/OpenAI Whisper, and only when native
 captions are missing and Whisper is not disabled. Reads/creates `~/.config/JoeFastTubeAI/.env`
 (mode 0600) for API keys. The only new behavior is that output is written to

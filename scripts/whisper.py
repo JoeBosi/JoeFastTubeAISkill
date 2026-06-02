@@ -62,7 +62,6 @@ def load_api_key(preferred: str | None = None) -> tuple[str, str] | tuple[None, 
 
     dotenv_paths = [
         Path.home() / ".config" / "JoeFastTubeAI" / ".env",
-        Path.home() / ".config" / "watch" / ".env",  # legacy fallback (upstream `watch` skill)
         Path.cwd() / ".env",
     ]
 
@@ -116,7 +115,7 @@ def _build_multipart(fields: dict[str, str], file_path: Path) -> tuple[bytes, st
     Whisper's multipart upload is small and predictable — doing it by hand
     keeps us on pure stdlib instead of pulling requests/groq/openai SDKs.
     """
-    boundary = f"----WatchBoundary{uuid.uuid4().hex}"
+    boundary = f"----JFTBoundary{uuid.uuid4().hex}"
     eol = b"\r\n"
     buf = io.BytesIO()
 
@@ -181,7 +180,7 @@ def _post_whisper(endpoint: str, api_key: str, model: str, audio_path: Path) -> 
         # Groq sits behind Cloudflare — the default `Python-urllib/3.x` UA
         # trips WAF rule 1010 (403) before auth even runs. Any non-default
         # UA clears it; we identify honestly.
-        "User-Agent": "watch-skill/1.0 (+claude-code; python-urllib)",
+        "User-Agent": "joefasttube-skill/1.1 (+claude-code; python-urllib)",
     }
 
     context = _ssl_context()
@@ -212,7 +211,7 @@ def _post_whisper(endpoint: str, api_key: str, model: str, audio_path: Path) -> 
 
             if attempt < MAX_ATTEMPTS - 1:
                 print(
-                    f"[watch] whisper HTTP {exc.code} — retrying in {delay:.1f}s "
+                    f"[JoeFastTubeAI] whisper HTTP {exc.code} — retrying in {delay:.1f}s "
                     f"(attempt {attempt + 2}/{MAX_ATTEMPTS})",
                     file=sys.stderr,
                 )
@@ -223,7 +222,7 @@ def _post_whisper(endpoint: str, api_key: str, model: str, audio_path: Path) -> 
             if attempt < MAX_ATTEMPTS - 1:
                 delay = RETRY_BASE_DELAY * (attempt + 1)
                 print(
-                    f"[watch] whisper network error ({type(exc).__name__}: {exc}) — "
+                    f"[JoeFastTubeAI] whisper network error ({type(exc).__name__}: {exc}) — "
                     f"retrying in {delay:.1f}s (attempt {attempt + 2}/{MAX_ATTEMPTS})",
                     file=sys.stderr,
                 )
