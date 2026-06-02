@@ -101,6 +101,8 @@ for other URLs it is a short hash; for a local file it is `file-<name>`.
 
 ## Configuration — the `.env` file (Whisper keys)
 
+> 📋 A ready-to-copy template lives in **[`.env.example`](./.env.example)** at the repo root.
+
 A Whisper API key is **optional**. It is used **only** to transcribe videos that have **no
 captions** — and most YouTube videos already have captions, so you may never need it. When
 it *is* needed, the key is read from a small text file:
